@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nellis Auction Supply Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            text-align: center;
+            font-size: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button.danger {
+            background: #e74c3c;
+        }
+        
+        button.danger:hover {
+            background: #c0392b;
+        }
+        
+        button.success {
+            background: #27ae60;
+        }
+        
+        button.success:hover {
+            background: #229954;
+        }
+        
+        .scanner-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #qr-video {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            display: block;
+            border-radius: 8px;
+        }
+        
+        .scan-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .current-assignments {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .assignment-card {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .log-entry {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-timestamp {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .filter-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .incident-report {
+            background: #fee;
+            border-left: 4px solid #e74c3c;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Nellis Auction Supply Tracker</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <!-- Employee Check In/Out Section -->
+        <div id="employeeSection" class="card">
+            <h2>Employee Check In/Out</h2>
+            
+            <div class="form-group">
+                <label for="employeeName">Employee Name:</label>
+                <input type="text" id="employeeName" placeholder="Enter your name">
+            </div>
+            
+            <div class="form-group">
+                <label for="stationNumber">Station Number:</label>
+                <input type="number" id="stationNumber" placeholder="Enter station number">
+                <button onclick="assignStation()">Assign Station</button>
+            </div>
+            
+            <div class="scanner-container">
+                <h3>Scan QR Code</h3>
+                <video id="qr-video" class="hidden"></video>
+                <canvas id="qr-canvas" class="hidden"></canvas>
+                <button onclick="startScanner()" id="startScanBtn">Start Scanner</button>
+                <button onclick="stopScanner()" id="stopScanBtn" class="hidden">Stop Scanner</button>
+                
+                <div class="scan-result hidden" id="scanResult">
+                    <p>Scanned: <strong id="scannedValue"></strong></p>
+                </div>
+            </div>
+            
+            <div class="current-assignments">
+                <div class="assignment-card">
+                    <h4>Current Phone</h4>
+                    <p id="currentPhone">None</p>
+                    <button onclick="checkOut('phone')" class="danger">Check Out</button>
+                </div>
+                <div class="assignment-card">
+                    <h4>Current Bin</h4>
+                    <p id="currentBin">None</p>
+                    <button onclick="checkOut('bin')" class="danger">Check Out</button>
+                </div>
+                <div class="assignment-card">
+                    <h4>Current Station</h4>
+                    <p id="currentStation">None</p>
+                    <button onclick="checkOut('station')" class="danger">Check Out</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Manager Section -->
+        <div class="card">
+            <h2>Manager Access</h2>
+            <div id="managerLogin">
+                <div class="form-group">
+                    <label for="managerCode">Manager Code:</label>
+                    <input type="password" id="managerCode" placeholder="Enter manager code">
+                    <button onclick="managerLogin()">Login</button>
+                </div>
+            </div>
+            
+            <div id="managerDashboard" class="hidden">
+                <button onclick="managerLogout()" class="danger">Logout</button>
+                <button onclick="exportToCSV()" class="success">Export to CSV</button>
+                
+                <h3 style="margin-top: 20px;">Add Incident Report</h3>
+                <div class="form-group">
+                    <textarea id="incidentReport" rows="3" placeholder="Enter incident details..."></textarea>
+                    <button onclick="addIncident()">Add Incident</button>
+                </div>
+                
+                <h3 style="margin-top: 20px;">Activity Log</h3>
+                <div class="filter-controls">
+                    <select id="weekFilter" onchange="filterLogs()">
+                        <option value="all">All Time</option>
+                        <option value="1">Last Week</option>
+                        <option value="2">Last 2 Weeks</option>
+                        <option value="3">Last 3 Weeks</option>
+                        <option value="4">Last 4 Weeks</option>
+                    </select>
+                    <input type="text" id="searchFilter" placeholder="Search logs..." onkeyup="filterLogs()">
+                    <button onclick="filterLogs()">Filter</button>
+                </div>
+                
+                <div id="logContainer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    <script>
+        // gonna store everything in indexeddb for persistence
+        let db;
+        let scanner;
+        let currentEmployee = {};
+        const MANAGER_CODE = '1234'; // change this to whatever you want
+        
+        // Initialize database
+        function initDB() {
+            const request = indexedDB.open('NellisTracker', 1);
+            
+            request.onerror = function() {
+                console.error('Database failed to open');
+            };
+            
+            request.onsuccess = function() {
+                db = request.result;
+                loadCurrentAssignments();
+                if (localStorage.getItem('managerLoggedIn') === 'true') {
+                    showManagerDashboard();
+                }
+            };
+            
+            request.onupgradeneeded = function(e) {
+                db = e.target.result;
+                
+                if (!db.objectStoreNames.contains('logs')) {
+                    const logStore = db.createObjectStore('logs', { keyPath: 'id', autoIncrement: true });
+                    logStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    logStore.createIndex('employee', 'employee', { unique: false });
+                }
+                
+                if (!db.objectStoreNames.contains('currentAssignments')) {
+                    db.createObjectStore('currentAssignments', { keyPath: 'employee' });
+                }
+            };
+        }
+        
+        // qr code scanner functions
+        function startScanner() {
+            const video = document.getElementById('qr-video');
+            const startBtn = document.getElementById('startScanBtn');
+            const stopBtn = document.getElementById('stopScanBtn');
+            
+            video.classList.remove('hidden');
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            
+            scanner = new ZXing.BrowserQRCodeReader();
+            scanner.decodeFromVideoDevice(undefined, 'qr-video', (result, err) => {
+                if (result) {
+                    handleScan(result.text);
+                    stopScanner();
+                }
+            });
+        }
+        
+        function stopScanner() {
+            if (scanner) {
+                scanner.reset();
+            }
+            document.getElementById('qr-video').classList.add('hidden');
+            document.getElementById('startScanBtn').classList.remove('hidden');
+            document.getElementById('stopScanBtn').classList.add('hidden');
+        }
+        
+        function handleScan(value) {
+            const scanResult = document.getElementById('scanResult');
+            const scannedValue = document.getElementById('scannedValue');
+            
+            scanResult.classList.remove('hidden');
+            scannedValue.textContent = value;
+            
+            // figure out if its a phone or bin based on the scanned value
+            // you might want to adjust this logic based on your qr code format
+            if (value.toLowerCase().includes('phone') || value.startsWith('P')) {
+                assignItem('phone', value);
+            } else if (value.toLowerCase().includes('bin') || value.startsWith('B')) {
+                assignItem('bin', value);
+            } else {
+                // default to bin if we cant tell
+                assignItem('bin', value);
+            }
+        }
+        
+        function assignItem(type, value) {
+            const employeeName = document.getElementById('employeeName').value;
+            if (!employeeName) {
+                alert('Please enter your name first!');
+                return;
+            }
+            
+            // check out of previous item if exists
+            if (currentEmployee[type]) {
+                logActivity(employeeName, `Checked out of ${type}: ${currentEmployee[type]}`, 'checkout');
+            }
+            
+            // check into new item
+            currentEmployee[type] = value;
+            logActivity(employeeName, `Checked into ${type}: ${value}`, 'checkin');
+            updateCurrentAssignments();
+            saveCurrentAssignments();
+        }
+        
+        function assignStation() {
+            const employeeName = document.getElementById('employeeName').value;
+            const stationNumber = document.getElementById('stationNumber').value;
+            
+            if (!employeeName || !stationNumber) {
+                alert('Please enter both your name and station number!');
+                return;
+            }
+            
+            if (currentEmployee.station) {
+                logActivity(employeeName, `Left station: ${currentEmployee.station}`, 'checkout');
+            }
+            
+            currentEmployee.station = stationNumber;
+            logActivity(employeeName, `Assigned to station: ${stationNumber}`, 'checkin');
+            updateCurrentAssignments();
+            saveCurrentAssignments();
+        }
+        
+        function checkOut(type) {
+            const employeeName = document.getElementById('employeeName').value;
+            if (!employeeName) {
+                alert('Please enter your name first!');
+                return;
+            }
+            
+            if (currentEmployee[type]) {
+                logActivity(employeeName, `Checked out of ${type}: ${currentEmployee[type]}`, 'checkout');
+                currentEmployee[type] = null;
+                updateCurrentAssignments();
+                saveCurrentAssignments();
+            }
+        }
+        
+        function updateCurrentAssignments() {
+            document.getElementById('currentPhone').textContent = currentEmployee.phone || 'None';
+            document.getElementById('currentBin').textContent = currentEmployee.bin || 'None';
+            document.getElementById('currentStation').textContent = currentEmployee.station || 'None';
+        }
+        
+        function saveCurrentAssignments() {
+            const employeeName = document.getElementById('employeeName').value;
+            if (!employeeName) return;
+            
+            const transaction = db.transaction(['currentAssignments'], 'readwrite');
+            const store = transaction.objectStore('currentAssignments');
+            
+            currentEmployee.employee = employeeName;
+            store.put(currentEmployee);
+        }
+        
+        function loadCurrentAssignments() {
+            const employeeName = document.getElementById('employeeName').value;
+            if (!employeeName) return;
+            
+            const transaction = db.transaction(['currentAssignments'], 'readonly');
+            const store = transaction.objectStore('currentAssignments');
+            const request = store.get(employeeName);
+            
+            request.onsuccess = function() {
+                if (request.result) {
+                    currentEmployee = request.result;
+                    updateCurrentAssignments();
+                }
+            };
+        }
+        
+        function logActivity(employee, action, type) {
+            const transaction = db.transaction(['logs'], 'readwrite');
+            const store = transaction.objectStore('logs');
+            
+            const log = {
+                employee: employee,
+                action: action,
+                type: type,
+                timestamp: new Date().toISOString()
+            };
+            
+            store.add(log);
+            
+            if (document.getElementById('managerDashboard').classList.contains('hidden') === false) {
+                loadLogs();
+            }
+        }
+        
+        // manager functions
+        function managerLogin() {
+            const code = document.getElementById('managerCode').value;
+            if (code === MANAGER_CODE) {
+                localStorage.setItem('managerLoggedIn', 'true');
+                showManagerDashboard();
+            } else {
+                alert('Invalid manager code!');
+            }
+        }
+        
+        function managerLogout() {
+            localStorage.removeItem('managerLoggedIn');
+            document.getElementById('managerLogin').classList.remove('hidden');
+            document.getElementById('managerDashboard').classList.add('hidden');
+            document.getElementById('managerCode').value = '';
+        }
+        
+        function showManagerDashboard() {
+            document.getElementById('managerLogin').classList.add('hidden');
+            document.getElementById('managerDashboard').classList.remove('hidden');
+            loadLogs();
+        }
+        
+        function addIncident() {
+            const report = document.getElementById('incidentReport').value;
+            if (!report) {
+                alert('Please enter incident details!');
+                return;
+            }
+            
+            logActivity('Manager', `Incident Report: ${report}`, 'incident');
+            document.getElementById('incidentReport').value = '';
+            loadLogs();
+        }
+        
+        function loadLogs() {
+            const transaction = db.transaction(['logs'], 'readonly');
+            const store = transaction.objectStore('logs');
+            const request = store.getAll();
+            
+            request.onsuccess = function() {
+                const logs = request.result;
+                displayLogs(logs);
+            };
+        }
+        
+        function displayLogs(logs) {
+            const container = document.getElementById('logContainer');
+            container.innerHTML = '';
+            
+            // sort by timestamp descending
+            logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // only show logs from last month
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            
+            logs.forEach(log => {
+                if (new Date(log.timestamp) > oneMonthAgo) {
+                    const logDiv = document.createElement('div');
+                    logDiv.className = log.type === 'incident' ? 'incident-report' : 'log-entry';
+                    logDiv.dataset.logId = log.id;
+                    
+                    const logInfo = document.createElement('div');
+                    logInfo.innerHTML = `
+                        <strong>${log.employee}</strong> - ${log.action}
+                        <div class="log-timestamp">${new Date(log.timestamp).toLocaleString()}</div>
+                    `;
+                    
+                    const actions = document.createElement('div');
+                    actions.innerHTML = `
+                        <button onclick="editLog(${log.id})" style="font-size: 12px; padding: 5px 10px;">Edit</button>
+                        <button onclick="deleteLog(${log.id})" class="danger" style="font-size: 12px; padding: 5px 10px;">Delete</button>
+                    `;
+                    
+                    logDiv.appendChild(logInfo);
+                    logDiv.appendChild(actions);
+                    container.appendChild(logDiv);
+                }
+            });
+        }
+        
+        function filterLogs() {
+            const weekFilter = document.getElementById('weekFilter').value;
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+            
+            const transaction = db.transaction(['logs'], 'readonly');
+            const store = transaction.objectStore('logs');
+            const request = store.getAll();
+            
+            request.onsuccess = function() {
+                let logs = request.result;
+                
+                // filter by weeks
+                if (weekFilter !== 'all') {
+                    const weeksAgo = new Date();
+                    weeksAgo.setDate(weeksAgo.getDate() - (parseInt(weekFilter) * 7));
+                    logs = logs.filter(log => new Date(log.timestamp) > weeksAgo);
+                }
+                
+                // filter by search
+                if (searchFilter) {
+                    logs = logs.filter(log => 
+                        log.employee.toLowerCase().includes(searchFilter) ||
+                        log.action.toLowerCase().includes(searchFilter)
+                    );
+                }
+                
+                displayLogs(logs);
+            };
+        }
+        
+        function editLog(id) {
+            const newAction = prompt('Enter new action description:');
+            if (newAction) {
+                const transaction = db.transaction(['logs'], 'readwrite');
+                const store = transaction.objectStore('logs');
+                const request = store.get(id);
+                
+                request.onsuccess = function() {
+                    const log = request.result;
+                    log.action = newAction;
+                    store.put(log);
+                    loadLogs();
+                };
+            }
+        }
+        
+        function deleteLog(id) {
+            if (confirm('Are you sure you want to delete this log entry?')) {
+                const transaction = db.transaction(['logs'], 'readwrite');
+                const store = transaction.objectStore('logs');
+                store.delete(id);
+                loadLogs();
+            }
+        }
+        
+        function exportToCSV() {
+            const transaction = db.transaction(['logs'], 'readonly');
+            const store = transaction.objectStore('logs');
+            const request = store.getAll();
+            
+            request.onsuccess = function() {
+                const logs = request.result;
+                
+                // create csv content
+                let csvContent = 'Timestamp,Employee,Action,Type\n';
+                logs.forEach(log => {
+                    const timestamp = new Date(log.timestamp).toLocaleString();
+                    const row = `"${timestamp}","${log.employee}","${log.action}","${log.type}"\n`;
+                    csvContent += row;
+                });
+                
+                // download the file
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nellis_auction_logs_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            };
+        }
+        
+        // handle employee name change
+        document.getElementById('employeeName').addEventListener('change', function() {
+            loadCurrentAssignments();
+        });
+        
+        // Initialize everything when page loads
+        initDB();
+    </script>
+</body>
+</html>
